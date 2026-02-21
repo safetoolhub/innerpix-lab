@@ -159,7 +159,7 @@ def _ensure_root_logger():
                 if _log_file:
                     try:
                         from config import Config
-                        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
+                        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)  # Convertir MB a bytes
                         backup_count = Config.MAX_LOG_BACKUP_COUNT
                         
                         file_handler = ThreadSafeRotatingFileHandler(
@@ -178,7 +178,7 @@ def _ensure_root_logger():
                 if _log_file_warnings and _dual_log_enabled:
                     try:
                         from config import Config
-                        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
                         backup_count = Config.MAX_LOG_BACKUP_COUNT
                         
                         warning_handler = ThreadSafeRotatingFileHandler(
@@ -449,7 +449,7 @@ def configure_logging(
         # Handler thread-safe para archivo principal
         try:
             from config import Config
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024  # Convertir MB a bytes
+            max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)  # Convertir MB a bytes
             backup_count = Config.MAX_LOG_BACKUP_COUNT
             
             file_handler = ThreadSafeRotatingFileHandler(
@@ -467,7 +467,7 @@ def configure_logging(
         if _log_file_warnings:
             try:
                 from config import Config
-                max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
                 backup_count = Config.MAX_LOG_BACKUP_COUNT
                 
                 warning_handler = ThreadSafeRotatingFileHandler(
@@ -553,7 +553,7 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     # Crear nuevo file handler principal
     try:
         from config import Config
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
         backup_count = Config.MAX_LOG_BACKUP_COUNT
         
         formatter = logging.Formatter(
@@ -579,7 +579,7 @@ def change_logs_directory(new_dir: Path | str, dual_log_enabled: Optional[bool] 
     if _log_file_warnings:
         try:
             from config import Config
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
             backup_count = Config.MAX_LOG_BACKUP_COUNT
             
             warning_handler = ThreadSafeRotatingFileHandler(
@@ -630,7 +630,7 @@ def set_dual_log_enabled(enabled: bool) -> None:
             
             try:
                 from config import Config
-                max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+                max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
                 backup_count = Config.MAX_LOG_BACKUP_COUNT
                 
                 formatter = logging.Formatter(

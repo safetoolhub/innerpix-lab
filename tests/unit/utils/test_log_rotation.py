@@ -16,6 +16,14 @@ import logging
 from utils.logger import configure_logging, get_logger
 from config import Config
 
+@pytest.fixture(autouse=True)
+def mock_log_file_size():
+    """Mock the log file size to a small value for faster tests and avoid Windows IO hangups."""
+    original_size = Config.MAX_LOG_FILE_SIZE_MB
+    Config.MAX_LOG_FILE_SIZE_MB = 0.05
+    yield
+    Config.MAX_LOG_FILE_SIZE_MB = original_size
+
 
 class TestLogRotationBySize:
     """Tests para verificar que la rotación por tamaño funciona correctamente."""
@@ -35,7 +43,7 @@ class TestLogRotationBySize:
         logger = get_logger("TestRotation")
         
         # Calcular mensajes necesarios para exceder el límite
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
         message_size = 250  # ~250 bytes por mensaje
         messages_needed = (max_bytes // message_size) + 1000
         
@@ -74,7 +82,7 @@ class TestLogRotationBySize:
         logger = get_logger("TestRotation")
         
         # Escribir suficientes mensajes para rotar
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
         messages_needed = (max_bytes // 250) + 1000
         
         for i in range(messages_needed):
@@ -108,7 +116,7 @@ class TestLogRotationBackupCount:
             logger = get_logger("TestBackupCount")
             
             # Calcular mensajes para provocar múltiples rotaciones
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
             messages_per_rotation = (max_bytes // 250) + 500
             
             # Rotar (test_backup_count + 2) veces para asegurar que se eliminan los viejos
@@ -168,7 +176,7 @@ class TestLogRotationBackupCount:
             logger = get_logger("TestDeletion")
             
             # Provocar 4 rotaciones (más que el backup count)
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
             messages_per_rotation = (max_bytes // 250) + 500
             
             rotation_count = 0
@@ -220,7 +228,7 @@ class TestLogRotationBackupCount:
             logger = get_logger("TestSequence")
             
             # Provocar múltiples rotaciones
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
             messages_per_rotation = (max_bytes // 250) + 500
             
             for i in range(messages_per_rotation * (test_backup_count + 1)):
@@ -259,11 +267,12 @@ class TestLogRotationMultipleSessions:
         """
         log_file = temp_dir / "test_existing.log"
         
-        # Crear un archivo grande manualmente (11 MB)
-        large_content = "x" * (11 * 1024 * 1024)
+        # Crear un archivo grande manualmente (1.5x el límite)
+        target_size = int((Config.MAX_LOG_FILE_SIZE_MB * 1.5) * 1024 * 1024)
+        large_content = "x" * target_size
         log_file.write_text(large_content)
         
-        assert log_file.stat().st_size > Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024, \
+        assert log_file.stat().st_size > int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024), \
             "El archivo de prueba debe ser > límite"
         
         # Configurar logging con el archivo existente
@@ -271,7 +280,7 @@ class TestLogRotationMultipleSessions:
         
         handler = ThreadSafeRotatingFileHandler(
             str(log_file),
-            maxBytes=Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024,
+            maxBytes=int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024),
             backupCount=5
         )
         
@@ -302,7 +311,7 @@ class TestLogRotationMultipleSessions:
             log_file, _ = configure_logging(logs_dir=temp_dir, level="INFO", dual_log_enabled=False)
             logger1 = get_logger("Session1")
             
-            max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+            max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
             messages = (max_bytes // 250) + 500
             
             for i in range(messages):
@@ -359,7 +368,7 @@ class TestLogRotationDualLogging:
         logger = get_logger("TestDual")
         
         # Escribir muchos mensajes INFO (solo al log principal)
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
         messages = (max_bytes // 250) + 1000
         
         for i in range(messages):
@@ -441,7 +450,7 @@ class TestLogRotationEdgeCases:
         marker_start = "MARKER_START"
         marker_end = "MARKER_END"
         
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
         messages = (max_bytes // 250) + 1000
         
         logger.info(marker_start)
@@ -481,7 +490,7 @@ class TestLogRotationEdgeCases:
                 logger.info(f"[Thread-{thread_id}] Message-{i:06d} " + "x" * 180)
         
         # Crear múltiples threads escribiendo simultáneamente
-        max_bytes = Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024
+        max_bytes = int(Config.MAX_LOG_FILE_SIZE_MB * 1024 * 1024)
         messages_per_thread = (max_bytes // (250 * 4)) + 500  # Dividido entre 4 threads
         
         threads = []
