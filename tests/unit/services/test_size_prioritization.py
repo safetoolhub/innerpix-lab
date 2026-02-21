@@ -38,7 +38,7 @@ class TestSizePrioritization:
             sizes = []
             for f in group.files:
                 try:
-                    size = hashes[str(f)]['size']
+                    size = hashes[f.as_posix()]['size']
                     sizes.append(size)
                 except (KeyError, FileNotFoundError):
                     continue
@@ -114,7 +114,7 @@ class TestSizePrioritization:
             sizes = []
             for f in group.files:
                 try:
-                    size = hashes[str(f)]['size']
+                    size = hashes[f.as_posix()]['size']
                     sizes.append(size)
                 except (KeyError, FileNotFoundError):
                     continue
@@ -227,7 +227,7 @@ class TestSizePrioritization:
         def calculate_size_variation_score(group: SimilarDuplicateGroup) -> float:
             if len(group.files) < 2:
                 return 0.0
-            sizes = [hashes[str(f)]['size'] for f in group.files]
+            sizes = [hashes[f.as_posix()]['size'] for f in group.files]
             if len(sizes) < 2:
                 return 0.0
             min_size = min(sizes)

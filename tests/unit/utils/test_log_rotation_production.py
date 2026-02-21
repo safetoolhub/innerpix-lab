@@ -99,6 +99,17 @@ def test_rotation_with_production_backup_count():
         print(f"Current file: {current_size_mb:.2f} MB")
         print(f"\nTest passed with MAX_LOG_BACKUP_COUNT = {Config.MAX_LOG_BACKUP_COUNT}")
 
+        # Close handlers before TemporaryDirectory cleanup (required on Windows
+        # because RotatingFileHandler keeps the file open).
+        import logging as _logging
+        _root = _logging.getLogger('InnerpixLab')
+        for _h in _root.handlers[:]:
+            try:
+                _h.close()
+            except Exception:
+                pass
+            _root.removeHandler(_h)
+
 
 def test_high_number_backup_numbering():
     """
@@ -257,6 +268,15 @@ def test_rotation_consistency_across_restarts():
                 f"Deben ser consecutivos: {backups_after_s2}"
         
         print(f"\nConsistent numbering after multiple sessions")
+
+        # Close session 2 handlers before TemporaryDirectory cleanup (Windows).
+        _root = logging.getLogger('InnerpixLab')
+        for _h in _root.handlers[:]:
+            try:
+                _h.close()
+            except Exception:
+                pass
+            _root.removeHandler(_h)
 
 
 if __name__ == "__main__":

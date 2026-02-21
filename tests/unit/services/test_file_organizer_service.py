@@ -182,11 +182,11 @@ class TestFileOrganizerMoveUnsupported:
         # Archivo en raíz -> target_folder = "other"
         assert move_map['readme.md'].target_folder == "other"
 
-        # Archivo en subdir1 -> target_folder = "other/subdir1"
-        assert move_map['animation.gif'].target_folder == "other/subdir1"
+        # Archivo en subdir1 -> target_folder = "other/subdir1" (or os-specific separator)
+        assert move_map['animation.gif'].target_folder == str(Path("other/subdir1"))
 
         # Archivo en subdir1/nested -> target_folder = "other/subdir1/nested"
-        assert move_map['data.csv'].target_folder == "other/subdir1/nested"
+        assert move_map['data.csv'].target_folder == str(Path("other/subdir1/nested"))
 
     def test_files_already_in_other_are_skipped(self, tmp_path):
         """Archivos ya dentro de 'other/' no deben incluirse"""

@@ -515,6 +515,26 @@ class TestLogRotationEdgeCases:
             "El archivo actual no debe estar vacío"
 
 
+@pytest.fixture(autouse=True)
+def cleanup_log_handlers(temp_dir):
+    """Close all InnerpixLab log handlers after each test.
+
+    On Windows, RotatingFileHandler keeps the log file open, so the
+    TemporaryDirectory cleanup raises WinError 32 (file in use) unless
+    all handlers are explicitly closed first.  Depending on *temp_dir*
+    ensures this fixture tears down BEFORE temp_dir releases the directory.
+    """
+    yield
+    import logging
+    root_logger = logging.getLogger('InnerpixLab')
+    for handler in root_logger.handlers[:]:
+        try:
+            handler.close()
+        except Exception:
+            pass
+        root_logger.removeHandler(handler)
+
+
 @pytest.fixture
 def temp_dir():
     """Crea un directorio temporal para los tests."""

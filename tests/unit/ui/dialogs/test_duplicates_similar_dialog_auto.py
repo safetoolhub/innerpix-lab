@@ -62,10 +62,10 @@ def create_mock_dialog(files_data):
     
     # Mockear métodos helpers para facilitar setup de datos
     dialog._get_file_size = MagicMock()
-    dialog._get_file_size.side_effect = lambda p: next((f[1] for g in files_data for f in g if f[0] == str(p)), 0)
+    dialog._get_file_size.side_effect = lambda p: next((f[1] for g in files_data for f in g if Path(f[0]) == p), 0)
     
     dialog._get_file_best_date = MagicMock()
-    dialog._get_file_best_date.side_effect = lambda p: next((f[2] for g in files_data for f in g if f[0] == str(p)), 0)
+    dialog._get_file_best_date.side_effect = lambda p: next((f[2] for g in files_data for f in g if Path(f[0]) == p), 0)
     
     return dialog
 
