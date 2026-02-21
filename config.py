@@ -14,7 +14,7 @@ class Config:
     # 1. INFORMACIÓN DE LA APLICACIÓN
     # ========================================================================
     APP_NAME = "Innerpix Lab"
-    APP_VERSION = "0.8.1"
+    APP_VERSION = "0.8.4"
     APP_VERSION_SUFFIX = "alpha"  # "beta", "rc1", "" (empty for stable)
     APP_AUTHOR = "SafeToolHub"
     APP_CONTACT = "safetoolhub@protonmail.com"
