@@ -6,6 +6,7 @@ Proporciona utilidades comunes como animaciones, persistencia y navegación.
 from typing import Optional, Callable, Any
 from pathlib import Path
 from PyQt6.QtWidgets import QWidget, QMainWindow, QGraphicsOpacityEffect, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QToolButton
+from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QTimer, QObject, QSize, Qt
 
 from utils.settings_manager import settings_manager
@@ -345,19 +346,39 @@ class BaseStage(QObject):
 
         # Logo/Icono de la aplicación con fondo sutil
         icon_container = QFrame()
+        icon_container.setFixedSize(56, 56)  # Tamaño fijo para que sea protagonista
         icon_container.setStyleSheet(f"""
             QFrame {{
                 background-color: {DesignSystem.COLOR_PRIMARY_LIGHT};
                 border-radius: {DesignSystem.RADIUS_MD}px;
-                padding: {DesignSystem.SPACE_8}px;
+                padding: 0px;
+                border: 1px solid {DesignSystem.COLOR_BORDER_LIGHT};
             }}
         """)
         icon_layout = QHBoxLayout(icon_container)
-        icon_layout.setContentsMargins(8, 8, 8, 8)
+        icon_layout.setContentsMargins(0, 0, 0, 0)
         icon_layout.setSpacing(0)
+        icon_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         app_icon = QLabel()
-        icon_manager.set_label_icon(app_icon, 'camera', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
+        ICON_SIZE_HEADER = 48  # Aumentado para llenar el contenedor de 56px
+        if Config.APP_ICON_PATH.exists():
+            pixmap = QPixmap(str(Config.APP_ICON_PATH))
+            if not pixmap.isNull():
+                # Escalar el icono para que ocupe casi todo el contenedor
+                scaled_pixmap = pixmap.scaled(
+                    ICON_SIZE_HEADER, 
+                    ICON_SIZE_HEADER, 
+                    Qt.AspectRatioMode.KeepAspectRatio, 
+                    Qt.TransformationMode.SmoothTransformation
+                )
+                app_icon.setPixmap(scaled_pixmap)
+                app_icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            else:
+                icon_manager.set_label_icon(app_icon, 'camera', color=DesignSystem.COLOR_PRIMARY, size=ICON_SIZE_HEADER)
+        else:
+            icon_manager.set_label_icon(app_icon, 'camera', color=DesignSystem.COLOR_PRIMARY, size=ICON_SIZE_HEADER)
+        
         icon_layout.addWidget(app_icon)
         layout.addWidget(icon_container)
 

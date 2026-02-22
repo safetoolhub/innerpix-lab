@@ -107,7 +107,7 @@ def main():
     app.setOrganizationName("InnerpixLab")
 
     # Set application icon (taskbar, window title bar, alt-tab)
-    icon_path = Path(__file__).resolve().parent / "assets" / "icon.png"
+    icon_path = Config.APP_ICON_PATH
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
         logger.debug(f"Application icon set from {icon_path}")

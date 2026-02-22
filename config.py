@@ -38,6 +38,10 @@ class Config:
     DEFAULT_LOG_DIR = DEFAULT_BASE_DIR / "logs"
     DEFAULT_BACKUP_DIR = DEFAULT_BASE_DIR / "backups"
     DEFAULT_CACHE_SAVED_DIR = DEFAULT_BASE_DIR / "cache_saved"
+    
+    # Rutas de assets
+    ASSETS_DIR = Path(__file__).resolve().parent / "assets"
+    APP_ICON_PATH = ASSETS_DIR / "icon.png"
 
     # ========================================================================
     # 3. LOGGING
