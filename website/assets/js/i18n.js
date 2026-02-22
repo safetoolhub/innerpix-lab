@@ -1,200 +1,253 @@
-// translations.js
+// ─── SafeToolHub i18n + Theme + Blog System ─────────────────────────────────
+// Common translations shared across all pages.
+// Post-specific translations are defined inline in each post HTML file.
+
 const translations = {
-    en: {
-        // Navigation
-        "nav-tools": "Our Tools",
-        "nav-about": "About",
-        "nav-blog": "Blog",
+  en: {
+    // Navigation
+    "nav-tools": "Our Tools",
+    "nav-about": "About",
+    "nav-blog": "Blog",
 
-        // Hero
-        "hero-badge": "Privacy-First Ecosystem",
-        "hero-title-1": "Empowering users with",
-        "hero-title-2": "Secure Local Tools",
-        "hero-subtitle": "We build privacy-respecting software for everyone. Everything runs locally on your machine. <strong>No cloud, no telemetry, no tracking.</strong>",
-        "hero-btn": "Explore Our Tools",
+    // Hero
+    "hero-badge": "Open-Source & Privacy-First",
+    "hero-title-1": "Empowering users with",
+    "hero-title-2": "Free & Secure Local Tools",
+    "hero-subtitle": "We build open-source, privacy-respecting software for everyone. Everything runs locally on your machine. <strong>No cloud, no telemetry, no tracking. Free as in freedom.</strong>",
+    "hero-btn": "Explore Our Tools",
 
-        // Tools Section
-        "tools-title": "Available Applications",
-        "tools-desc": "Discover our suite of software designed with privacy and transparency as the main pillar.",
-        "tools-i-title": "Innerpix Lab",
-        "tools-i-desc": "The ultimate privacy-first photo and video management studio. Clean duplicates, organize them in folders, and find visually similar media.",
-        "tools-i-f1": "Exact & Perceptual Hash Duplicate Detection",
-        "tools-i-f2": "HEIC/JPG and Live Photo Cleanup",
-        "tools-i-f3": "Smart Date Organization & Renaming",
-        "tools-i-f4": "Available for Linux, Windows, and macOS",
-        "tools-i-btn": "Download Innerpix Lab",
-        "tools-v-badge": "Coming Soon",
-        "tools-v-title": "Simple Video Editor",
-        "tools-v-desc": "A lightning-fast, highly optimized local video editor meant for quick trims, crops, and format conversions without the bloat.",
-        "tools-v-f1": "Lossless cutting and trimming",
-        "tools-v-f2": "Format conversion without quality loss",
-        "tools-v-f3": "Hardware-accelerated encoding",
-        "tools-v-f4": "Hardware-level privacy architecture",
-        "tools-v-btn": "Not Yet Available",
+    // Tools Section
+    "tools-title": "Available Applications",
+    "tools-desc": "Discover our suite of open-source software designed with privacy and transparency as the main pillars.",
+    "tools-i-title": "Innerpix Lab",
+    "tools-i-desc": "The ultimate privacy-first photo and video management studio. Clean duplicates, organize them in folders, and find visually similar media. Free and open-source.",
+    "tools-i-f1": "Exact & Perceptual Hash Duplicate Detection",
+    "tools-i-f2": "HEIC/JPG and Live Photo Cleanup",
+    "tools-i-f3": "Smart Date Organization & Renaming",
+    "tools-i-f4": "Available for Linux, Windows, and macOS",
+    "tools-i-btn": "Download Innerpix Lab",
+    "tools-v-badge": "Coming Soon",
+    "tools-v-title": "Simple Video Editor",
+    "tools-v-desc": "A lightning-fast, highly optimized local video editor meant for quick trims, crops, and format conversions without the bloat.",
+    "tools-v-f1": "Lossless cutting and trimming",
+    "tools-v-f2": "Format conversion without quality loss",
+    "tools-v-f3": "Hardware-accelerated encoding",
+    "tools-v-f4": "Hardware-level privacy architecture",
+    "tools-v-btn": "Not Yet Available",
 
-        // Blog Section
-        "blog-title": "Our Blog",
-        "blog-desc": "Insights, updates, and deep dives into privacy and local-first software.",
-        "blog-meta-date": "February 21, 2026",
-        "blog-meta-tag": "Philosophy",
-        "blog-post-title": "Why Local Processing Matters",
-        "blog-post-desc": "At SafeToolHub, our core belief is simple: your data belongs on your device. We explore why we build software avoiding the cloud at all costs, ensuring zero telemetry, no tracking, and absolute privacy for your most sensitive files.",
-        "blog-read-more": "Read Article",
+    // Blog Section
+    "blog-title": "Our Blog",
+    "blog-desc": "Insights, updates, and deep dives into privacy, freedom, and local-first software.",
+    "blog-read-more": "Read Article",
 
-        // Donate Section
-        "donate-title": "Support SafeToolHub",
-        "donate-desc": "We build our tools to be 100% free, highly optimized, and completely private because we believe that's how software should be. If you find these tools valuable for your workflow, consider supporting our development.",
-        "donate-btn-1": "Buy us a coffee",
-        "donate-btn-2": "GitHub Sponsors",
+    // About Section
+    "about-title-1": "Why",
+    "about-title-2": "SafeToolHub?",
+    "about-p1": "In an era where every application demands constant internet connectivity and uploads your personal data to \u2018the cloud\u2019 for analytics or AI training, we decided to take a different path.",
+    "about-p2": "SafeToolHub is dedicated to building robust, beautiful, and completely offline applications. Our tools are free and open-source under the GPLv3 license\u2014they don\u2019t even contain networking code. Your freedom and privacy are non-negotiable.",
+    "about-btn": "Visit our GitHub",
+    "about-img-text": "100% Offline Architecture",
 
-        // About Section
-        "about-title-1": "Why",
-        "about-title-2": "SafeToolHub?",
-        "about-p1": "In an era where every application demands constant internet connectivity and uploads your personal data to 'the cloud' for analytics or AI training, we decided to take a different path.",
-        "about-p2": "SafeToolHub is dedicated to building robust, beautiful, and completely offline applications. Our tools don't even contain networking code.",
-        "about-btn": "Visit our GitHub",
-        "about-img-text": "100% Offline Architecture",
+    // Donate Section
+    "donate-title": "Support SafeToolHub",
+    "donate-desc": "We build our tools to be free, open-source, and completely private because we believe that\u2019s how software should be. If you find value in our work, consider supporting our development so we can keep creating tools that respect your freedom.",
+    "donate-btn-1": "Buy us a coffee",
+    "donate-btn-2": "GitHub Sponsors",
 
-        // Footer
-        "footer-main-desc": "Privacy-first software ecosystem.",
-        "footer-tools-title": "Tools",
-        "footer-links-title": "Links",
-        "footer-links-org": "GitHub Organization",
-        "footer-links-repo": "Innerpix Repo",
-        "footer-rights": "© 2026 SafeToolHub. All rights reserved.",
-        "footer-license": "Licensed under the <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>GNU General Public License v3 (GPLv3)</a>.<br>Mandatory attribution required for any distribution or derivative work in accordance with GPLv3 Section 7, linking to safetoolhub@protonmail.com and safetoolhub.org.",
+    // Footer
+    "footer-main-desc": "Free and open-source software for everyone.",
+    "footer-tools-title": "Tools",
+    "footer-links-title": "Links",
+    "footer-links-org": "GitHub Organization",
+    "footer-links-repo": "Innerpix Repo",
+    "footer-rights": "\u00a9 2026 SafeToolHub. Free and open-source software.",
+    "footer-license": "Licensed under the <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>GNU General Public License v3 (GPLv3)</a>. You are free to use, study, modify, and share this software. Source code available on <a href='https://github.com/safetoolhub' target='_blank'>GitHub</a>.",
 
-        // Blog Page specific
-        "post-back": "Back to Home",
-        "post-title": "Why Local Processing and Pruvacy Matters",
-        "post-date": "February 21, 2026",
-        "post-author": "By SafeToolHub",
-        "post-c1": "In today’s software ecosystem, the standard model is to process user data on remote servers. We are constantly told that the cloud is necessary for 'AI features', 'analytics', or 'cross-device syncing'. But at SafeToolHub, we firmly disagree with this premise.",
-        "post-c2": "Your data—especially personal photos and videos—belongs to you. When you upload files to a third-party server, you surrender control. Telemetry pings, behavioral tracking, and silent analytics have become the norm even for simple desktop utilities. We believe this is a fundamental violation of user trust.",
-        "post-c3": "That is why SafeToolHub applications, like Innerpix Lab, are built with a <strong>100% Offline Architecture</strong>. There is no telemetry. There are no analytics. In fact, our applications don’t even include the networking libraries capable of making outgoing HTTP requests. No ads, Completely free.",
-        "post-c4": "Local processing is not just about privacy; it’s about performance and ownership. Modern computers are incredibly powerful. Utilizing local hardware accelerates tasks like perceptual hashing and duplicates detection, all while keeping your data secured on your own hard drive.",
-        "post-c5": "We are committed to building open-source software that respects you as a user. Thank you for supporting our mission to bring privacy back to the desktop."
-    },
+    // Shared post elements
+    "post-back": "Back to Blog",
 
-    es: {
-        // Nav 
-        "nav-tools": "Herramientas",
-        "nav-about": "Acerca de",
-        "nav-blog": "Blog",
+    // Blog listing page
+    "blog-listing-title": "Blog",
+    "blog-listing-desc": "Insights, updates, and deep dives into privacy, freedom, and open-source software.",
+  },
 
-        // Hero
-        "hero-badge": "Ecosistema centrado en la privacidad",
-        "hero-title-1": "Potenciando a usuarios con",
-        "hero-title-2": "Herramientas Locales Seguras",
-        "hero-subtitle": "Construimos software premium que respeta tu privacidad, para profesionales y entusiastas. Todo se ejecuta localmente en tu máquina. <strong>Sin nube, sin telemetría, sin rastreo.</strong>",
-        "hero-btn": "Explorar Herramientas",
+  es: {
+    // Navegación
+    "nav-tools": "Herramientas",
+    "nav-about": "Acerca de",
+    "nav-blog": "Blog",
 
-        // Tools
-        "tools-title": "Aplicaciones Disponibles",
-        "tools-desc": "Descubre nuestra suite de software diseñada con la privacidad y el rendimiento como pilares principales.",
-        "tools-i-title": "Innerpix Lab",
-        "tools-i-desc": "El estudio definitivo para gestionar fotos y vídeos sin comprometer la privacidad. Limpia duplicados, organiza por EXIF y encuentra similitudes visuales.",
-        "tools-i-f1": "Detección de duplicados exactos y por hash perceptual",
-        "tools-i-f2": "Limpieza de HEIC/JPG y Live Photos",
-        "tools-i-f3": "Organización inteligente por fechas",
-        "tools-i-f4": "Disponible para Linux, Windows y macOS",
-        "tools-i-btn": "Descargar Innerpix Lab",
-        "tools-v-badge": "Próximamente",
-        "tools-v-title": "Editor de Vídeo Simple",
-        "tools-v-desc": "Un editor de vídeo local extremadamente rápido y optimizado, pensado para recortes rápidos y conversiones de formato sin saturar el sistema.",
-        "tools-v-f1": "Recortes de vídeo sin pérdida",
-        "tools-v-f2": "Conversión de formatos sin pérdida de calidad",
-        "tools-v-f3": "Codificación acelerada por hardware",
-        "tools-v-f4": "Arquitectura basada en hardware y privacidad",
-        "tools-v-btn": "Aún no disponible",
+    // Hero
+    "hero-badge": "Software Libre y Privacidad",
+    "hero-title-1": "Potenciando a usuarios con",
+    "hero-title-2": "Herramientas Libres y Seguras",
+    "hero-subtitle": "Creamos software de c\u00f3digo abierto que respeta tu privacidad, para todos. Todo se ejecuta localmente en tu m\u00e1quina. <strong>Sin nube, sin telemetr\u00eda, sin rastreo. Libre como en libertad.</strong>",
+    "hero-btn": "Explorar Herramientas",
 
-        // Blog Section
-        "blog-title": "Nuestro Blog",
-        "blog-desc": "Reflexiones, actualizaciones y análisis profundos sobre privacidad y software local.",
-        "blog-meta-date": "21 de Febrero, 2026",
-        "blog-meta-tag": "Filosofía",
-        "blog-post-title": "Por qué el procesamiento local es vital",
-        "blog-post-desc": "En SafeToolHub, nuestra creencia fundamental es simple: tus datos pertenecen a tu dispositivo. Exploramos por qué construimos software evitando la nube a toda costa, garantizando cero telemetría, cero rastreo y privacidad absoluta para tus archivos más sensibles.",
-        "blog-read-more": "Leer Artículo",
+    // Herramientas
+    "tools-title": "Aplicaciones Disponibles",
+    "tools-desc": "Descubre nuestra suite de software de c\u00f3digo abierto dise\u00f1ada con la privacidad y la transparencia como pilares principales.",
+    "tools-i-title": "Innerpix Lab",
+    "tools-i-desc": "El estudio definitivo para gestionar fotos y v\u00eddeos sin comprometer la privacidad. Limpia duplicados, org\u00e1nizalos en carpetas y encuentra similitudes visuales. Libre y de c\u00f3digo abierto.",
+    "tools-i-f1": "Detecci\u00f3n de duplicados exactos y por hash perceptual",
+    "tools-i-f2": "Limpieza de HEIC/JPG y Live Photos",
+    "tools-i-f3": "Organizaci\u00f3n inteligente por fechas y renombrado",
+    "tools-i-f4": "Disponible para Linux, Windows y macOS",
+    "tools-i-btn": "Descargar Innerpix Lab",
+    "tools-v-badge": "Pr\u00f3ximamente",
+    "tools-v-title": "Editor de V\u00eddeo Simple",
+    "tools-v-desc": "Un editor de v\u00eddeo local extremadamente r\u00e1pido y optimizado, pensado para recortes r\u00e1pidos y conversiones de formato sin saturar el sistema.",
+    "tools-v-f1": "Recortes de v\u00eddeo sin p\u00e9rdida",
+    "tools-v-f2": "Conversi\u00f3n de formatos sin p\u00e9rdida de calidad",
+    "tools-v-f3": "Codificaci\u00f3n acelerada por hardware",
+    "tools-v-f4": "Arquitectura basada en hardware y privacidad",
+    "tools-v-btn": "A\u00fan no disponible",
 
-        // Donate Section
-        "donate-title": "Apoya a SafeToolHub",
-        "donate-desc": "Desarrollamos nuestras herramientas para que sean 100% gratuitas, altamente optimizadas y completamente privadas porque creemos que así debe ser el software. Si encuentras valor en ellas para tu trabajo, considera apoyar nuestro desarrollo.",
-        "donate-btn-1": "Invítanos un café",
-        "donate-btn-2": "GitHub Sponsors",
+    // Blog
+    "blog-title": "Nuestro Blog",
+    "blog-desc": "Reflexiones, novedades y an\u00e1lisis sobre privacidad, libertad y software local.",
+    "blog-read-more": "Leer Art\u00edculo",
 
-        // About Section
-        "about-title-1": "¿Por qué",
-        "about-title-2": "SafeToolHub?",
-        "about-p1": "En una era en la que cada aplicación exige conexión constante a Internet y sube tus datos personales a 'la nube' para analíticas o para entrenar IA, decidimos tomar otro camino.",
-        "about-p2": "SafeToolHub se dedica a construir aplicaciones robustas, hermosas y completamente fuera de línea. Nuestras herramientas ni siquiera contienen código de red interno.",
-        "about-btn": "Visitar en GitHub",
-        "about-img-text": "Arquitectura 100% Offline",
+    // Acerca de
+    "about-title-1": "\u00bfPor qu\u00e9",
+    "about-title-2": "SafeToolHub?",
+    "about-p1": "En una era en la que cada aplicaci\u00f3n exige conexi\u00f3n constante a Internet y sube tus datos personales a \u2018la nube\u2019 para anal\u00edticas o para entrenar IA, decidimos tomar otro camino.",
+    "about-p2": "SafeToolHub se dedica a construir aplicaciones robustas, bonitas y completamente offline. Nuestras herramientas son libres y de c\u00f3digo abierto bajo la licencia GPLv3: ni siquiera contienen c\u00f3digo de red. Tu libertad y tu privacidad no son negociables.",
+    "about-btn": "Visitar en GitHub",
+    "about-img-text": "Arquitectura 100% Offline",
 
-        // Footer
-        "footer-main-desc": "Ecosistema de software enfocado en la privacidad.",
-        "footer-tools-title": "Herramientas",
-        "footer-links-title": "Enlaces",
-        "footer-links-org": "Organización en GitHub",
-        "footer-links-repo": "Repo de Innerpix",
-        "footer-rights": "© 2026 SafeToolHub. Todos los derechos reservados.",
-        "footer-license": "Licenciado bajo la <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>Licencia Pública General v3 de GNU (GPLv3)</a>.<br>Atribución obligatoria para cualquier distribución o trabajo derivado de acuerdo con la Sección 7 de la GPLv3, enlazando a SafeToolHub y safetoolhub.org.",
+    // Donar
+    "donate-title": "Apoya a SafeToolHub",
+    "donate-desc": "Desarrollamos nuestras herramientas para que sean libres, de c\u00f3digo abierto y completamente privadas porque creemos que as\u00ed debe ser el software. Si encuentras valor en nuestro trabajo, considera apoyar nuestro desarrollo para que podamos seguir creando herramientas que respeten tu libertad.",
+    "donate-btn-1": "Inv\u00edtanos un caf\u00e9",
+    "donate-btn-2": "GitHub Sponsors",
 
-        // Blog Page specific
-        "post-back": "Volver al Inicio",
-        "post-title": "Por qué el procesamiento local es vital",
-        "post-date": "21 de Febrero, 2026",
-        "post-author": "Por SafeToolHub",
-        "post-c1": "En el ecosistema de software actual, el modelo estándar es procesar los datos de los usuarios en servidores remotos. Constantemente se nos dice que la nube es necesaria para 'funciones de IA', 'análisis' o 'sincronización entre dispositivos'. Pero en SafeToolHub estamos firmemente en desacuerdo con esta premisa.",
-        "post-c2": "Tus datos, especialmente las fotos personales y videos, te pertenecen. Cuando subes archivos a un servidor de terceros, renuncias al control. Los pings de telemetría, el seguimiento de comportamiento y los análisis silenciosos se han convertido en la norma, incluso en las simples utilidades de escritorio. Creemos que esta es una violación fundamental de la confianza del usuario.",
-        "post-c3": "Por esa razón, aplicaciones de SafeToolHub como Innerpix Lab se han construido con una <strong>Arquitectura 100% Offline</strong>. No hay telemetría. No hay analíticas. De hecho, nuestras aplicaciones ni siquiera incorporan las bibliotecas de red capaces de realizar peticiones HTTP salientes.",
-        "post-c4": "El procesamiento local no se trata sólo de privacidad, también se trata del rendimiento y propiedad. Los ordenadores modernos son increíblemente potentes. Aprovechar el hardware local acelera tareas como la detección de hash perceptual y duplicados, todo esto manteniendo tu información a salvo en tu propio disco duro.",
-        "post-c5": "Estamos comprometidos a crear software premium de alto rendimiento que respete al usuario. Gracias por apoyar nuestra misión de devolver la privacidad al escritorio."
-    }
+    // Pie de p\u00e1gina
+    "footer-main-desc": "Software libre y de c\u00f3digo abierto para todos.",
+    "footer-tools-title": "Herramientas",
+    "footer-links-title": "Enlaces",
+    "footer-links-org": "Organizaci\u00f3n en GitHub",
+    "footer-links-repo": "Repo de Innerpix",
+    "footer-rights": "\u00a9 2026 SafeToolHub. Software libre y de c\u00f3digo abierto.",
+    "footer-license": "Licenciado bajo la <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>Licencia P\u00fablica General v3 de GNU (GPLv3)</a>. Eres libre de usar, estudiar, modificar y compartir este software. C\u00f3digo fuente disponible en <a href='https://github.com/safetoolhub' target='_blank'>GitHub</a>.",
+
+    // Elementos compartidos de posts
+    "post-back": "Volver al Blog",
+
+    // P\u00e1gina de listado del blog
+    "blog-listing-title": "Blog",
+    "blog-listing-desc": "Reflexiones, novedades y an\u00e1lisis sobre privacidad, libertad y software de c\u00f3digo abierto.",
+  }
 };
 
+
+// ─── i18n Engine ─────────────────────────────────────────────────────────────
+
 document.addEventListener("DOMContentLoaded", () => {
-    // Determine language: Check localStorage, then browser language, fallback to English.
-    let currentLang = localStorage.getItem("safetoolhub_lang");
-    if (!currentLang) {
-        const browserLang = navigator.language || navigator.userLanguage;
-        currentLang = browserLang.startsWith("es") ? "es" : "en";
+  // 1. Determine language
+  let currentLang = localStorage.getItem("safetoolhub_lang");
+  if (!currentLang) {
+    const browserLang = navigator.language || navigator.userLanguage;
+    currentLang = browserLang.startsWith("es") ? "es" : "en";
+  }
+
+  // 2. Merge post-specific translations if present
+  if (window.POST_TRANSLATIONS) {
+    for (const lang of Object.keys(window.POST_TRANSLATIONS)) {
+      if (translations[lang]) {
+        Object.assign(translations[lang], window.POST_TRANSLATIONS[lang]);
+      }
     }
+  }
 
-    function applyLanguage(lang) {
-        document.documentElement.lang = lang;
-        const dict = translations[lang] || translations.en;
+  function applyLanguage(lang) {
+    document.documentElement.lang = lang;
+    const dict = translations[lang] || translations.en;
 
-        // Update data-i18n elements
-        document.querySelectorAll("[data-i18n]").forEach(el => {
-            const key = el.getAttribute("data-i18n");
-            const isHtml = el.hasAttribute("data-i18n-html");
+    // Update data-i18n elements
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.getAttribute("data-i18n");
+      const isHtml = el.hasAttribute("data-i18n-html");
 
-            if (dict[key]) {
-                if (isHtml) el.innerHTML = dict[key];
-                else el.textContent = dict[key];
-            }
-        });
-
-        // Update active state in language switch
-        document.querySelectorAll(".lang-switch a").forEach(el => {
-            el.classList.remove("active");
-            if (el.getAttribute("data-lang") === lang) {
-                el.classList.add("active");
-            }
-        });
-    }
-
-    // Apply initially
-    applyLanguage(currentLang);
-
-    // Bind language switchers
-    document.querySelectorAll(".lang-switch a").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            e.preventDefault();
-            const newLang = e.target.getAttribute("data-lang");
-            localStorage.setItem("safetoolhub_lang", newLang);
-            applyLanguage(newLang);
-        });
+      if (dict[key]) {
+        if (isHtml) el.innerHTML = dict[key];
+        else el.textContent = dict[key];
+      }
     });
+
+    // Update active state in language switch
+    document.querySelectorAll(".lang-switch a").forEach(el => {
+      el.classList.remove("active");
+      if (el.getAttribute("data-lang") === lang) {
+        el.classList.add("active");
+      }
+    });
+
+    // Render blog cards if containers exist
+    renderBlogCards(lang);
+  }
+
+  // 3. Apply initially
+  applyLanguage(currentLang);
+
+  // 4. Bind language switchers
+  document.querySelectorAll(".lang-switch a").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const newLang = e.target.getAttribute("data-lang");
+      localStorage.setItem("safetoolhub_lang", newLang);
+      currentLang = newLang;
+      applyLanguage(newLang);
+    });
+  });
+
+  // 5. Bind theme toggle
+  const themeToggle = document.getElementById("theme-toggle");
+  if (themeToggle) {
+    updateThemeIcon();
+    themeToggle.addEventListener("click", () => {
+      const current = document.documentElement.getAttribute("data-theme") || "light";
+      const next = current === "dark" ? "light" : "dark";
+      document.documentElement.setAttribute("data-theme", next);
+      localStorage.setItem("sth-theme", next);
+      updateThemeIcon();
+    });
+  }
 });
+
+function updateThemeIcon() {
+  const themeToggle = document.getElementById("theme-toggle");
+  if (!themeToggle) return;
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  themeToggle.textContent = isDark ? "\u2600\ufe0f" : "\ud83c\udf19";
+  themeToggle.title = isDark ? "Switch to light mode" : "Switch to dark mode";
+}
+
+// ─── Blog Card Rendering ─────────────────────────────────────────────────────
+// Renders blog cards from the BLOG_POSTS manifest (loaded from posts/posts.js)
+
+function renderBlogCards(lang) {
+  if (typeof BLOG_POSTS === "undefined") return;
+  const dict = translations[lang] || translations.en;
+
+  // Render into all containers with class "blog-cards-container"
+  document.querySelectorAll(".blog-cards-container").forEach(container => {
+    const maxPosts = parseInt(container.getAttribute("data-max-posts")) || BLOG_POSTS.length;
+    const postsToShow = BLOG_POSTS.slice(0, maxPosts);
+
+    // Determine the base path for post links
+    const basePath = container.getAttribute("data-posts-path") || "posts/";
+
+    container.innerHTML = postsToShow.map(post => `
+      <article class="blog-card" onclick="window.location.href='${basePath}${post.slug}.html';">
+        <div class="blog-meta">
+          <span>${post.date_display[lang] || post.date_display.en}</span> &bull;
+          <span>${post.tag[lang] || post.tag.en}</span>
+        </div>
+        <h3>${post.title[lang] || post.title.en}</h3>
+        <p>${post.description[lang] || post.description.en}</p>
+        <span class="read-more">${dict["blog-read-more"] || "Read Article"} &rarr;</span>
+      </article>
+    `).join("");
+  });
+}
