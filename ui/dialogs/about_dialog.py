@@ -288,19 +288,15 @@ class AboutDialog(QDialog):
         frame = QFrame()
         frame.setStyleSheet(f"""
             QFrame {{
-                background-color: {DesignSystem.COLOR_SURFACE};
-                border: 1px solid {DesignSystem.COLOR_BORDER};
-                border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: {DesignSystem.SPACE_4}px;
+                background-color: transparent;
+                border: none;
+                margin-top: {DesignSystem.SPACE_2}px;
             }}
         """)
         
         main_layout = QVBoxLayout(frame)
-        main_layout.setContentsMargins(
-            DesignSystem.SPACE_16, DesignSystem.SPACE_8,
-            DesignSystem.SPACE_16, DesignSystem.SPACE_8
-        )
-        main_layout.setSpacing(DesignSystem.SPACE_4)
+        main_layout.setContentsMargins(0, DesignSystem.SPACE_4, 0, DesignSystem.SPACE_4)
+        main_layout.setSpacing(DesignSystem.SPACE_2)
         
         # Título de la sección
         title_layout = QHBoxLayout()
@@ -315,6 +311,8 @@ class AboutDialog(QDialog):
             font-size: {DesignSystem.FONT_SIZE_BASE}px;
             font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
             color: {DesignSystem.COLOR_TEXT};
+            background: transparent;
+            border: none;
         """)
         title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         title_layout.addWidget(title_label)
@@ -328,6 +326,8 @@ class AboutDialog(QDialog):
             color: {DesignSystem.COLOR_TEXT_SECONDARY};
             font-size: {DesignSystem.FONT_SIZE_SM}px;
             font-style: italic;
+            background: transparent;
+            border: none;
         """)
         info_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
         main_layout.addWidget(info_label)
@@ -352,7 +352,7 @@ class AboutDialog(QDialog):
             tr("settings.analysis.system_tools.ffprobe_checking")
         )
         self.about_ffprobe_status_label.setStyleSheet(
-            f"font-size: {DesignSystem.FONT_SIZE_SM}px;"
+            f"font-size: {DesignSystem.FONT_SIZE_SM}px; background: transparent; border: none;"
         )
         tools_status_layout.addWidget(self.about_ffprobe_status_label)
         
@@ -360,7 +360,7 @@ class AboutDialog(QDialog):
             tr("settings.analysis.system_tools.exiftool_checking")
         )
         self.about_exiftool_status_label.setStyleSheet(
-            f"font-size: {DesignSystem.FONT_SIZE_SM}px;"
+            f"font-size: {DesignSystem.FONT_SIZE_SM}px; background: transparent; border: none;"
         )
         tools_status_layout.addWidget(self.about_exiftool_status_label)
         
@@ -444,14 +444,14 @@ class AboutDialog(QDialog):
             )
             self.about_ffprobe_status_label.setText(display_text)
             self.about_ffprobe_status_label.setStyleSheet(
-                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_SUCCESS};"
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_SUCCESS}; background: transparent; border: none;"
             )
         else:
             self.about_ffprobe_status_label.setText(
                 tr("settings.analysis.system_tools.ffprobe_not_installed")
             )
             self.about_ffprobe_status_label.setStyleSheet(
-                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_ERROR};"
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_ERROR}; background: transparent; border: none;"
             )
         
         # Verificar exiftool
@@ -464,14 +464,14 @@ class AboutDialog(QDialog):
             )
             self.about_exiftool_status_label.setText(display_text)
             self.about_exiftool_status_label.setStyleSheet(
-                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_SUCCESS};"
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_SUCCESS}; background: transparent; border: none;"
             )
         else:
             self.about_exiftool_status_label.setText(
                 tr("settings.analysis.system_tools.exiftool_not_installed")
             )
             self.about_exiftool_status_label.setStyleSheet(
-                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_ERROR};"
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_ERROR}; background: transparent; border: none;"
             )
         
         # Actualizar estilo del frame según disponibilidad
