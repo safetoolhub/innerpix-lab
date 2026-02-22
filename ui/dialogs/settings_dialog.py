@@ -13,7 +13,7 @@ from ui.styles.design_system import DesignSystem
 from utils.i18n import tr, SUPPORTED_LANGUAGES
 from utils.logger import set_global_log_level, get_logger
 from utils.settings_manager import settings_manager
-from utils.platform_utils import check_ffprobe, check_exiftool, get_current_os_install_hint
+from utils.platform_utils import check_ffprobe, check_exiftool, get_current_os_install_hint, open_folder_in_explorer
 import logging
 
 
@@ -1086,24 +1086,25 @@ class SettingsDialog(QDialog):
 
     def open_logs_folder(self):
         """Abre la carpeta de logs usando el método apropiado según el sistema operativo."""
+        logs_dir = Path(self.logs_edit.text())
+
+        # Crear la carpeta si todavía no existe
         try:
-            logs_dir = self.logs_edit.text()
-
-            if platform.system() == 'Windows':
-                os.startfile(logs_dir)
-            elif platform.system() == 'Darwin':
-                subprocess.Popen(['open', logs_dir])
-            else:
-                subprocess.Popen(['xdg-open', logs_dir])
-
-            self.logger.info(f"Logs folder opened: {logs_dir}")
-
+            logs_dir.mkdir(parents=True, exist_ok=True)
         except Exception as e:
             QMessageBox.warning(
                 self,
                 tr("common.error"),
                 tr("settings.errors.cannot_open_folder", error=str(e))
             )
+            return
+
+        def on_error(msg: str):
+            QMessageBox.warning(self, tr("common.error"), msg)
+
+        success = open_folder_in_explorer(logs_dir, error_callback=on_error)
+        if success:
+            self.logger.info(f"Logs folder opened: {logs_dir}")
 
     def clear_all_settings(self):
         """Limpia toda la configuración guardada"""
