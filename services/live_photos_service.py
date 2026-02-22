@@ -13,6 +13,8 @@ from typing import List, Optional, Dict, Set
 
 from collections import defaultdict
 
+from utils.i18n import tr
+
 from config import Config
 from utils.date_utils import select_best_date_from_common_date_to_2_files
 from services.result_types import (
@@ -110,7 +112,7 @@ class LivePhotoService(BaseService):
         videos_without_duration = []
         for i, meta in enumerate(all_files):
             if i % 1000 == 0 and not self._report_progress(
-                progress_callback, i, total_files, "Classifying files..."
+                progress_callback, i, total_files, tr("services.progress.classifying_files")
             ):
                 return self._create_empty_result()
             
@@ -159,7 +161,7 @@ class LivePhotoService(BaseService):
             processed_dirs += 1
             if processed_dirs % 10 == 0:
                 self._report_progress(
-                    progress_callback, processed_dirs, total_dirs, "Matching Live Photos..."
+                    progress_callback, processed_dirs, total_dirs, tr("services.progress.pairing_live_photos")
                 )
             
             if directory not in photos_by_dir:
@@ -454,7 +456,7 @@ class LivePhotoService(BaseService):
                     progress_callback, 
                     idx + 1, 
                     total, 
-                    f"{'[Simulation] ' if dry_run else ''}Evaluating {video_path.name}"
+                    f"{tr('services.progress.simulation_prefix') if dry_run else ''}{tr('services.progress.evaluating_file', name=video_path.name)}"
                 ):
                     self.logger.info("Cleanup cancelled by user")
                     break
@@ -666,7 +668,7 @@ class LivePhotoService(BaseService):
                     progress_callback, 
                     i, 
                     len(videos), 
-                    f"Extracting video duration ({i}/{len(videos)})..."
+                    tr("services.progress.extracting_video_duration", current=i, total=len(videos))
                 )
             
             try:

@@ -11,6 +11,7 @@ from config import Config
 from utils.logger import get_logger, log_section_header_relevant, log_section_footer_relevant, log_section_header_discrete, log_section_footer_discrete
 from services.result_types import RenameExecutionResult, RenameAnalysisResult, RenamePlanItem, RenamedFileItem
 from services.base_service import BaseService, ProgressCallback
+from utils.i18n import tr
 from utils.date_utils import (
     select_best_date_from_file,
     format_renamed_name,
@@ -109,7 +110,7 @@ class FileRenamerService(BaseService):
                 processed += 1
                 
                 if processed % progress_interval == 0:
-                    if not self._report_progress(progress_callback, processed, total_files, "Analyzing file names"):
+                    if not self._report_progress(progress_callback, processed, total_files, tr("services.progress.analyzing_filenames")):
                          return self._create_empty_result(total_files) # Cancelled
                 
                 status, file_path, data = future.result()
@@ -286,7 +287,8 @@ class FileRenamerService(BaseService):
                 ))
 
                 if items_processed % Config.UI_UPDATE_INTERVAL == 0:
-                    if not self._report_progress(progress_callback, items_processed, total_files, f"{'Simulando' if dry_run else 'Renombrando'}... {items_processed}/{total_files}"):
+                    progress_key = "services.progress.simulating_n_of_total" if dry_run else "services.progress.renaming_n_of_total"
+                    if not self._report_progress(progress_callback, items_processed, total_files, tr(progress_key, current=items_processed, total=total_files)):
                          break
 
                 log_prefix = "FILE_RENAMED_SIMULATION" if dry_run else "FILE_RENAMED"

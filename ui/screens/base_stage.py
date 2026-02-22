@@ -357,7 +357,7 @@ class BaseStage(QObject):
         icon_layout.setSpacing(0)
         
         app_icon = QLabel()
-        icon_manager.set_label_icon(app_icon, 'movie-open', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
+        icon_manager.set_label_icon(app_icon, 'camera', color=DesignSystem.COLOR_PRIMARY, size=DesignSystem.ICON_SIZE_LG)
         icon_layout.addWidget(app_icon)
         layout.addWidget(icon_container)
 

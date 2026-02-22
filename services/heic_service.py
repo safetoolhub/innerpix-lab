@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Set, Tuple, Any
 from collections import defaultdict
 
+from utils.i18n import tr
 from utils.file_utils import validate_file_exists
 from services.result_types import HeicAnalysisResult, HeicExecutionResult, HEICDuplicatePair, AnalysisResult
 from services.base_service import BaseService, BackupCreationError, ProgressCallback
@@ -111,7 +112,7 @@ class HeicService(BaseService):
         # Clasificar archivos
         for i, meta in enumerate(all_files):
             try:
-                if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, "Classifying HEIC/JPG files"):
+                if i % 1000 == 0 and not self._report_progress(progress_callback, i, total_files, tr("services.progress.classifying_heic_jpg")):
                     return self._create_empty_result()
                     
                 extension = meta.extension
@@ -155,7 +156,7 @@ class HeicService(BaseService):
         for directory, heic_dict in heic_by_dir.items():
             processed_dirs += 1
             if processed_dirs % 10 == 0: # Report less frequently
-                 self._report_progress(progress_callback, processed_dirs, total_dirs, "Matching files...")
+                 self._report_progress(progress_callback, processed_dirs, total_dirs, tr("services.progress.pairing_files"))
 
             if directory not in jpg_by_dir:
                 continue
@@ -365,7 +366,7 @@ class HeicService(BaseService):
         bytes_processed = 0
         
         for idx, pair in enumerate(duplicate_pairs):
-             if not self._report_progress(progress_callback, idx+1, total_pairs, f"Processing pair {idx+1}/{total_pairs}"):
+             if not self._report_progress(progress_callback, idx+1, total_pairs, tr("services.progress.processing_pair_n_of_total", current=idx+1, total=total_pairs)):
                  break
                  
              file_to_delete = pair.heic_path if keep_format.lower() == 'jpg' else pair.jpg_path

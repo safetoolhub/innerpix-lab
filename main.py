@@ -5,11 +5,13 @@ Multimedia file management application with tools for organizing and cleaning du
 """
 import sys
 import os
+from pathlib import Path
 
 # Configure Qt to avoid Wayland warnings
 os.environ['QT_LOGGING_RULES'] = 'qt.qpa.wayland=false'
 
 from PyQt6.QtWidgets import QApplication
+from PyQt6.QtGui import QIcon
 from ui.screens.main_window import MainWindow
 from ui.styles.design_system import DesignSystem
 from config import Config
@@ -103,6 +105,24 @@ def main():
     app.setApplicationName(Config.APP_NAME)
     app.setApplicationVersion(Config.get_full_version())
     app.setOrganizationName("InnerpixLab")
+
+    # Set application icon (taskbar, window title bar, alt-tab)
+    icon_path = Path(__file__).resolve().parent / "assets" / "icon.png"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+        logger.debug(f"Application icon set from {icon_path}")
+    else:
+        logger.warning(f"Application icon not found at {icon_path}")
+
+    # Windows-specific: set AppUserModelID so Windows shows our icon in taskbar
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                f"SafeToolHub.InnerpixLab.{Config.APP_VERSION}"
+            )
+        except Exception:
+            pass
 
     # Create and show main window
     window = MainWindow()
