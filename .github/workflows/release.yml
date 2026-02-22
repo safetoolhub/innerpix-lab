@@ -7,6 +7,12 @@ name: Release
 # Nothing is public until YOU click "Publish" on the draft release.
 
 on:
+  workflow_dispatch:  # Manual trigger: use with a tag already pushed
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v0.8.6-alpha). Must already exist as a git tag.'
+        required: true
+        type: string
   push:
     tags:
       - "v*"
@@ -94,7 +100,12 @@ jobs:
         id: version
         shell: bash
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+            TAG="${TAG#v}"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build with PyInstaller + package
@@ -154,7 +165,12 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+            TAG="${TAG#v}"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Build with PyInstaller + package
@@ -198,7 +214,12 @@ jobs:
       - name: Determine pre-release status
         id: prerelease
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+            TAG="${TAG#v}"
+          else
+            TAG="${GITHUB_REF#refs/tags/v}"
+          fi
           if echo "$TAG" | grep -qE '(alpha|beta|rc|dev)'; then
             echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
           else

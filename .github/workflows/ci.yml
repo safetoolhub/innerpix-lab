@@ -1,10 +1,11 @@
 name: CI
 
+# MANUAL TRIGGER ONLY — tests are NOT run automatically on push.
+# Run this workflow from the GitHub Actions UI ("Run workflow" button).
+# You can also trigger it via the GitHub CLI: gh workflow run ci.yml
+
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:  # Manual trigger only
 
 concurrency:
   group: ci-${{ github.ref }}

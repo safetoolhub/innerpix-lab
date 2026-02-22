@@ -14,7 +14,7 @@
     content="Free and open-source, privacy-first tools. 100% local. No cloud. No telemetry. GPLv3.">
   <meta property="og:type" content="website">
 
-  <link rel="icon" type="image/png" href="assets/img/icon.png">
+  <link rel="icon" type="image/svg+xml" href="assets/img/safetoolhub-icon.svg">
   <link rel="stylesheet" href="assets/css/style.css">
 
   <!-- Instant theme application (prevents flash) -->
@@ -33,7 +33,7 @@
   <nav id="nav">
     <div class="nav-inner">
       <a href="index.html" class="nav-logo">
-        <div class="nav-logo-icon">S</div>
+        <img src="assets/img/safetoolhub-icon.svg" alt="SafeToolHub" class="nav-logo-img">
         <span>SafeToolHub</span>
       </a>
       <div class="nav-links">
@@ -56,8 +56,8 @@
     <div class="container">
       <div class="badge" data-i18n="hero-badge">Open-Source & Privacy-First</div>
       <h1>
-        <span class="gradient-text" data-i18n="hero-title-1">Empowering users with</span><br>
-        <span class="gradient-accent" data-i18n="hero-title-2">Free & Secure Local Tools</span>
+        <span class="gradient-text" data-i18n="hero-title-1">Your privacy, your tools</span><br>
+        <span class="gradient-accent" data-i18n="hero-title-2">Secure, private and free</span>
       </h1>
       <p class="subtitle" data-i18n="hero-subtitle" data-i18n-html>
         We build open-source, privacy-respecting software for everyone.
@@ -82,8 +82,8 @@
         <!-- Tool 1: Innerpix Lab -->
         <div class="tool-card active-tool">
           <div class="tool-header">
-            <div class="tool-icon">📸</div>
-            <div class="status-badge" style="border-color: var(--primary); color: var(--primary);">v0.8.0 Alpha</div>
+            <div class="tool-icon"><img src="assets/img/icon.png" alt="Innerpix Lab" style="width:48px;height:48px;border-radius:8px;"></div>
+            <div class="status-badge" style="border-color: var(--primary); color: var(--primary);">v0.8.6 Alpha</div>
           </div>
           <h3 data-i18n="tools-i-title">Innerpix Lab</h3>
           <p data-i18n="tools-i-desc">The ultimate privacy-first photo and video management studio. Clean duplicates,
@@ -157,30 +157,28 @@
             data-i18n="about-btn">Visit our GitHub</a>
         </div>
         <div class="about-image">
-          <img src="assets/img/icon.png" alt="SafeToolHub Shield" style="max-width: 200px;">
+          <img src="assets/img/safetoolhub-icon.svg" alt="SafeToolHub" style="max-width: 200px;">
           <h3 style="margin-top: 1rem;" data-i18n="about-img-text">100% Offline Architecture</h3>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Support / Donate -->
+  <!-- Support / Sponsor -->
   <section id="donate">
     <div class="container">
       <div class="donate-card">
-        <div class="donate-icon">❤️</div>
+        <div class="donate-icon">💜</div>
         <div class="donate-content">
           <h2 data-i18n="donate-title">Support SafeToolHub</h2>
           <p data-i18n="donate-desc">We build our tools to be free, open-source, and completely private because we
             believe that's how software should be. If you find value in our work, consider supporting our development so
             we can keep creating tools that respect your freedom.</p>
           <div class="donate-buttons">
-            <a href="#" class="btn btn-primary">
-              <span class="btn-icon">☕</span> <span data-i18n="donate-btn-1">Buy us a coffee</span>
-            </a>
-            <a href="#" class="btn btn-secondary">
-              <span class="btn-icon">💜</span> <span data-i18n="donate-btn-2">GitHub Sponsors</span>
-            </a>
+            <button class="btn btn-disabled" disabled>
+              <span class="btn-icon">💜</span> <span data-i18n="donate-btn-gh">GitHub Sponsors</span>
+            </button>
+            <span class="sponsor-note" data-i18n="donate-coming-soon" style="color: var(--text-muted); font-size: 0.9rem; align-self: center;">Coming soon</span>
           </div>
         </div>
       </div>
@@ -207,7 +205,7 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <p data-i18n="footer-rights">&copy; 2026 SafeToolHub. Free and open-source software.</p>
+        <p data-i18n="footer-rights">SafeToolHub — Free and open-source software (GPLv3).</p>
         <p class="license-info" data-i18n="footer-license" data-i18n-html>
           Licensed under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank">GNU General Public
             License v3 (GPLv3)</a>. You are free to use, study, modify, and share this software.

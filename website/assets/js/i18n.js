@@ -11,8 +11,8 @@ const translations = {
 
     // Hero
     "hero-badge": "Open-Source & Privacy-First",
-    "hero-title-1": "Empowering users with",
-    "hero-title-2": "Free & Secure Local Tools",
+    "hero-title-1": "Your privacy, your tools",
+    "hero-title-2": "Secure, private and free",
     "hero-subtitle": "We build open-source, privacy-respecting software for everyone. Everything runs locally on your machine. <strong>No cloud, no telemetry, no tracking. Free as in freedom.</strong>",
     "hero-btn": "Explore Our Tools",
 
@@ -51,8 +51,8 @@ const translations = {
     // Donate Section
     "donate-title": "Support SafeToolHub",
     "donate-desc": "We build our tools to be free, open-source, and completely private because we believe that\u2019s how software should be. If you find value in our work, consider supporting our development so we can keep creating tools that respect your freedom.",
-    "donate-btn-1": "Buy us a coffee",
-    "donate-btn-2": "GitHub Sponsors",
+    "donate-btn-gh": "GitHub Sponsors",
+    "donate-coming-soon": "Coming soon",
 
     // Footer
     "footer-main-desc": "Free and open-source software for everyone.",
@@ -60,7 +60,7 @@ const translations = {
     "footer-links-title": "Links",
     "footer-links-org": "GitHub Organization",
     "footer-links-repo": "Innerpix Repo",
-    "footer-rights": "\u00a9 2026 SafeToolHub. Free and open-source software.",
+    "footer-rights": "SafeToolHub \u2014 Free and open-source software (GPLv3).",
     "footer-license": "Licensed under the <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>GNU General Public License v3 (GPLv3)</a>. You are free to use, study, modify, and share this software. Source code available on <a href='https://github.com/safetoolhub' target='_blank'>GitHub</a>.",
 
     // Shared post elements
@@ -79,8 +79,8 @@ const translations = {
 
     // Hero
     "hero-badge": "Software Libre y Privacidad",
-    "hero-title-1": "Potenciando a usuarios con",
-    "hero-title-2": "Herramientas Libres y Seguras",
+    "hero-title-1": "Tu privacidad, tus herramientas",
+    "hero-title-2": "Seguras, privadas y libres",
     "hero-subtitle": "Creamos software de c\u00f3digo abierto que respeta tu privacidad, para todos. Todo se ejecuta localmente en tu m\u00e1quina. <strong>Sin nube, sin telemetr\u00eda, sin rastreo. Libre como en libertad.</strong>",
     "hero-btn": "Explorar Herramientas",
 
@@ -119,8 +119,8 @@ const translations = {
     // Donar
     "donate-title": "Apoya a SafeToolHub",
     "donate-desc": "Desarrollamos nuestras herramientas para que sean libres, de c\u00f3digo abierto y completamente privadas porque creemos que as\u00ed debe ser el software. Si encuentras valor en nuestro trabajo, considera apoyar nuestro desarrollo para que podamos seguir creando herramientas que respeten tu libertad.",
-    "donate-btn-1": "Inv\u00edtanos un caf\u00e9",
-    "donate-btn-2": "GitHub Sponsors",
+    "donate-btn-gh": "GitHub Sponsors",
+    "donate-coming-soon": "Pr\u00f3ximamente",
 
     // Pie de p\u00e1gina
     "footer-main-desc": "Software libre y de c\u00f3digo abierto para todos.",
@@ -128,7 +128,7 @@ const translations = {
     "footer-links-title": "Enlaces",
     "footer-links-org": "Organizaci\u00f3n en GitHub",
     "footer-links-repo": "Repo de Innerpix",
-    "footer-rights": "\u00a9 2026 SafeToolHub. Software libre y de c\u00f3digo abierto.",
+    "footer-rights": "SafeToolHub \u2014 Software libre y de c\u00f3digo abierto (GPLv3).",
     "footer-license": "Licenciado bajo la <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>Licencia P\u00fablica General v3 de GNU (GPLv3)</a>. Eres libre de usar, estudiar, modificar y compartir este software. C\u00f3digo fuente disponible en <a href='https://github.com/safetoolhub' target='_blank'>GitHub</a>.",
 
     // Elementos compartidos de posts

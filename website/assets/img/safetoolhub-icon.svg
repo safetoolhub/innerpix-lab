@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Shield shape -->
+  <path d="M256 72 L400 140 L400 280 Q400 380 256 440 Q112 380 112 280 L112 140 Z"
+        fill="white" fill-opacity="0.15" stroke="white" stroke-width="8"/>
+  <!-- Lock body -->
+  <rect x="216" y="252" width="80" height="68" rx="10" fill="white"/>
+  <!-- Lock shackle -->
+  <path d="M228 252 L228 220 Q228 188 256 188 Q284 188 284 220 L284 252"
+        fill="none" stroke="white" stroke-width="14" stroke-linecap="round"/>
+  <!-- Keyhole -->
+  <circle cx="256" cy="280" r="10" fill="#4f46e5"/>
+  <rect x="252" y="286" width="8" height="16" rx="3" fill="#4f46e5"/>
+</svg>
