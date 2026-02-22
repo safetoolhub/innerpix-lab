@@ -474,7 +474,7 @@
     },
     "welcome": {
       "title": "Bienvenido a InnerPix Lab",
-      "description": "Suite de herramientas para gestionar, optimizar y organizar tus fotos y vídeos. <b>Privacidad absoluta</b>: todo el procesamiento es 100% local en tu computadora.",
+      "description": "Suite de herramientas para gestionar, optimizar y organizar tus fotos y vídeos. <b>Privacidad absoluta</b>: todo el procesamiento es 100% local en tu equipo local.",
       "workflow_title": "Proceso de trabajo (Pasos a seguir en orden)",
       "workflow_description": "InnerPix Lab está diseñado para seguir un flujo lógico y optimizar tu colección de manera progresiva. Sigue estos 4 pasos para obtener el mejor resultado:",
       "steps": {
@@ -508,6 +508,11 @@
           "title": "Logs Detallados",
           "description": "Registro de todas las operaciones"
         }
+      },
+      "system_tools": {
+        "title": "Herramientas del Sistema",
+        "info": "Para analizar vídeos (duración, fecha) se requieren herramientas externas. Sin ellas, las funciones de vídeo estarán limitadas.",
+        "check_button": "Verificar"
       }
     },
     "nav": {

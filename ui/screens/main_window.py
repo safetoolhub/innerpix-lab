@@ -65,9 +65,12 @@ class MainWindow(QMainWindow):
             from utils.settings_manager import settings_manager
             if Config.DEV_RESET_FIRST_LAUNCH:
                 settings_manager.set(settings_manager.KEY_FIRST_LAUNCH_SHOWN, False)
-            if not settings_manager.get_bool(settings_manager.KEY_FIRST_LAUNCH_SHOWN, default=False):
-                settings_manager.set(settings_manager.KEY_FIRST_LAUNCH_SHOWN, True)
+                self.logger.info("DEV_RESET_FIRST_LAUNCH: Reset first launch flag to False")
+            already_shown = settings_manager.get_bool(settings_manager.KEY_FIRST_LAUNCH_SHOWN, default=False)
+            self.logger.info(f"First launch check: already_shown={already_shown}")
+            if not already_shown:
                 self._pending_first_launch_about = True
+                self.logger.info("First launch about dialog scheduled to show")
 
         self.logger.info("MainWindow initialized in State 1")
 
@@ -78,6 +81,7 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if getattr(self, '_pending_first_launch_about', False):
             self._pending_first_launch_about = False
+            self.logger.info("showEvent: Scheduling first-launch about dialog (400ms)")
             from PyQt6.QtCore import QTimer
             QTimer.singleShot(400, self._show_first_launch_about)
 
@@ -85,10 +89,16 @@ class MainWindow(QMainWindow):
         """Muestra el diálogo About en el primer lanzamiento de la aplicación."""
         try:
             from ui.dialogs.about_dialog import AboutDialog
+            from utils.settings_manager import settings_manager
+            self.logger.info("Showing first-launch about dialog...")
             dialog = AboutDialog(self)
             dialog.exec()
+            # Mark as shown only AFTER the dialog was successfully displayed
+            settings_manager.set(settings_manager.KEY_FIRST_LAUNCH_SHOWN, True)
+            self.logger.info("First-launch about dialog closed, flag set to True")
         except Exception as e:
             self.logger.warning(f"Could not show first-launch about dialog: {e}")
+            # Do NOT mark as shown if the dialog failed - will retry next launch
 
     def _transition_to_state_1(self):
         """Transición al Stage 1 (Selector de carpeta)"""

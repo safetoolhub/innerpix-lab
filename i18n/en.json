@@ -508,6 +508,11 @@
           "title": "Detailed Logs",
           "description": "Record of all operations"
         }
+      },
+      "system_tools": {
+        "title": "System Tools",
+        "info": "External tools are needed to analyze videos (duration, date). Without them, video features will be limited.",
+        "check_button": "Check"
       }
     },
     "nav": {

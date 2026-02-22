@@ -1,6 +1,6 @@
 # Funcionalidades de InnerPix Lab
 
-InnerPix Lab es una suite de herramientas diseñada para gestionar, optimizar y organizar colecciones de fotos y vídeos personales. Su filosofía central es la **privacidad absoluta**: todo el análisis y procesamiento se realiza 100% en su computadora. Ningún archivo, metadato ni información personal sale de su dispositivo en ningún momento.
+InnerPix Lab es una suite de herramientas diseñada para gestionar, optimizar y organizar colecciones de fotos y vídeos personales. Su filosofía central es la **privacidad absoluta**: todo el análisis y procesamiento se realiza 100% en su equipo local. Ningún archivo, metadato ni información personal sale de su dispositivo en ningún momento.
 
 ## Compromiso con la Seguridad y Transparencia
 

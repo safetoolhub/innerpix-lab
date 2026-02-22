@@ -59,6 +59,7 @@ class IconManager:
     ICON_MAP = {
         # === CONFIGURACIÓN Y SISTEMA ===
         'cog': 'mdi6.cog',
+        'settings': 'mdi6.cog',  # alias for cog for UI sections
         'auto-fix': 'mdi6.auto-fix',
         'information': 'mdi6.information',
         'information-outline': 'mdi6.information-outline',

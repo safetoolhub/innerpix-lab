@@ -24,6 +24,7 @@ from ui.tools_definitions import (
     TOOL_CATEGORIES, get_tools_by_category
 )
 from utils.i18n import tr
+from utils.platform_utils import check_ffprobe, check_exiftool, get_current_os_install_hint
 
 # Colores sutiles por categoría de herramientas
 _CATEGORY_COLORS = {
@@ -268,6 +269,10 @@ class AboutDialog(QDialog):
         
         layout.addLayout(tips_layout)
         
+        # === SECCIÓN DE HERRAMIENTAS DEL SISTEMA ===
+        tools_section = self._create_system_tools_section()
+        layout.addWidget(tools_section)
+        
         # Navegación sutil
         nav_widget = self._create_tab_navigation(next_tab=1, next_label=tr("about.nav.view_tools"))
         layout.addWidget(nav_widget)
@@ -276,7 +281,227 @@ class AboutDialog(QDialog):
         
         return self._create_scroll_content(container)
 
+    # ==================== HERRAMIENTAS DEL SISTEMA ====================
 
+    def _create_system_tools_section(self) -> QFrame:
+        """Crea la sección de verificación de herramientas del sistema (ffprobe, exiftool)."""
+        frame = QFrame()
+        frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: {DesignSystem.COLOR_SURFACE};
+                border: 1px solid {DesignSystem.COLOR_BORDER};
+                border-radius: {DesignSystem.RADIUS_LG}px;
+                margin-top: {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        
+        main_layout = QVBoxLayout(frame)
+        main_layout.setContentsMargins(
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
+            DesignSystem.SPACE_16, DesignSystem.SPACE_12
+        )
+        main_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        # Título de la sección
+        title_layout = QHBoxLayout()
+        title_layout.setSpacing(DesignSystem.SPACE_8)
+        
+        tools_icon = QLabel()
+        icon_manager.set_label_icon(tools_icon, "settings", color=DesignSystem.COLOR_PRIMARY, size=18)
+        title_layout.addWidget(tools_icon)
+        
+        title_label = QLabel(tr("about.welcome.system_tools.title"))
+        title_label.setStyleSheet(f"""
+            font-size: {DesignSystem.FONT_SIZE_BASE}px;
+            font-weight: {DesignSystem.FONT_WEIGHT_SEMIBOLD};
+            color: {DesignSystem.COLOR_TEXT};
+        """)
+        title_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        title_layout.addWidget(title_label)
+        title_layout.addStretch()
+        main_layout.addLayout(title_layout)
+        
+        # Descripción
+        info_label = QLabel(tr("about.welcome.system_tools.info"))
+        info_label.setWordWrap(True)
+        info_label.setStyleSheet(f"""
+            color: {DesignSystem.COLOR_TEXT_SECONDARY};
+            font-size: {DesignSystem.FONT_SIZE_SM}px;
+            font-style: italic;
+        """)
+        info_label.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
+        main_layout.addWidget(info_label)
+        
+        # Contenedor horizontal para estado + botón
+        tools_row = QWidget()
+        tools_row_layout = QHBoxLayout(tools_row)
+        tools_row_layout.setContentsMargins(0, 0, 0, 0)
+        tools_row_layout.setSpacing(DesignSystem.SPACE_12)
+        
+        # Frame para mostrar estado de herramientas
+        self.about_tools_status_frame = QFrame()
+        self.about_tools_status_frame.setStyleSheet(
+            DesignSystem.get_status_frame_style(DesignSystem.COLOR_BORDER)
+        )
+        
+        tools_status_layout = QVBoxLayout(self.about_tools_status_frame)
+        tools_status_layout.setSpacing(DesignSystem.SPACE_4)
+        
+        self.about_ffprobe_status_label = QLabel(
+            tr("settings.analysis.system_tools.ffprobe_checking")
+        )
+        self.about_ffprobe_status_label.setStyleSheet(
+            f"font-size: {DesignSystem.FONT_SIZE_SM}px;"
+        )
+        tools_status_layout.addWidget(self.about_ffprobe_status_label)
+        
+        self.about_exiftool_status_label = QLabel(
+            tr("settings.analysis.system_tools.exiftool_checking")
+        )
+        self.about_exiftool_status_label.setStyleSheet(
+            f"font-size: {DesignSystem.FONT_SIZE_SM}px;"
+        )
+        tools_status_layout.addWidget(self.about_exiftool_status_label)
+        
+        tools_row_layout.addWidget(self.about_tools_status_frame, 1)
+        
+        # Botón para verificar herramientas
+        check_tools_btn = QPushButton(tr("about.welcome.system_tools.check_button"))
+        check_tools_btn.setFixedWidth(120)
+        check_tools_btn.setStyleSheet(DesignSystem.get_secondary_button_style())
+        check_tools_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        check_tools_btn.setToolTip(
+            tr("settings.analysis.system_tools.check_button_tooltip")
+        )
+        check_tools_btn.clicked.connect(self._check_system_tools)
+        tools_row_layout.addWidget(check_tools_btn, 0, Qt.AlignmentFlag.AlignTop)
+        
+        main_layout.addWidget(tools_row)
+        
+        # Botón de info colapsable sobre instalación
+        self.about_install_info_btn = QPushButton(
+            tr("settings.analysis.system_tools.install_how")
+        )
+        self.about_install_info_btn.setFlat(True)
+        self.about_install_info_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.about_install_info_btn.setStyleSheet(f"""
+            QPushButton {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_PRIMARY};
+                text-align: left;
+                padding: {DesignSystem.SPACE_4}px 0;
+                border: none;
+            }}
+            QPushButton:hover {{
+                color: {DesignSystem.COLOR_PRIMARY_HOVER};
+                text-decoration: underline;
+            }}
+        """)
+        self.about_install_info_btn.clicked.connect(self._toggle_about_install_info)
+        main_layout.addWidget(self.about_install_info_btn)
+        
+        # Panel de instalación (oculto por defecto)
+        current_os_hint = get_current_os_install_hint()
+        self.about_install_info_panel = QLabel(
+            f"<b>{tr('settings.analysis.system_tools.install_your_system')}</b> {current_os_hint}<br><br>"
+            "• <b>Ubuntu/Debian:</b> sudo apt install ffmpeg libimage-exiftool-perl<br>"
+            "• <b>Fedora/RHEL:</b> sudo dnf install ffmpeg perl-Image-ExifTool<br>"
+            "• <b>Arch/Manjaro:</b> sudo pacman -S ffmpeg perl-image-exiftool<br>"
+            "• <b>macOS:</b> brew install ffmpeg exiftool<br>"
+            f"• <b>Windows:</b> {tr('settings.analysis.system_tools.install_windows')}"
+        )
+        self.about_install_info_panel.setWordWrap(True)
+        self.about_install_info_panel.setOpenExternalLinks(True)
+        self.about_install_info_panel.setStyleSheet(f"""
+            QLabel {{
+                font-size: {DesignSystem.FONT_SIZE_SM}px;
+                color: {DesignSystem.COLOR_TEXT_SECONDARY};
+                background-color: {DesignSystem.COLOR_BG_4};
+                border-radius: {DesignSystem.RADIUS_MD}px;
+                padding: {DesignSystem.SPACE_12}px;
+                margin-left: {DesignSystem.SPACE_8}px;
+            }}
+        """)
+        self.about_install_info_panel.hide()
+        main_layout.addWidget(self.about_install_info_panel)
+        
+        # Auto-check tools on creation
+        from PyQt6.QtCore import QTimer
+        QTimer.singleShot(100, self._check_system_tools)
+        
+        return frame
+
+    def _check_system_tools(self):
+        """Verifica si las herramientas del sistema están instaladas (ffprobe, exiftool)."""
+        # Verificar ffprobe
+        ffprobe_status = check_ffprobe()
+        if ffprobe_status.available:
+            display_text = (
+                f"ffprobe: {ffprobe_status.version[:40]}"
+                if ffprobe_status.version
+                else tr("settings.analysis.system_tools.ffprobe_installed")
+            )
+            self.about_ffprobe_status_label.setText(display_text)
+            self.about_ffprobe_status_label.setStyleSheet(
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_SUCCESS};"
+            )
+        else:
+            self.about_ffprobe_status_label.setText(
+                tr("settings.analysis.system_tools.ffprobe_not_installed")
+            )
+            self.about_ffprobe_status_label.setStyleSheet(
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_ERROR};"
+            )
+        
+        # Verificar exiftool
+        exiftool_status = check_exiftool()
+        if exiftool_status.available:
+            display_text = (
+                f"exiftool: v{exiftool_status.version}"
+                if exiftool_status.version
+                else tr("settings.analysis.system_tools.exiftool_installed")
+            )
+            self.about_exiftool_status_label.setText(display_text)
+            self.about_exiftool_status_label.setStyleSheet(
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_SUCCESS};"
+            )
+        else:
+            self.about_exiftool_status_label.setText(
+                tr("settings.analysis.system_tools.exiftool_not_installed")
+            )
+            self.about_exiftool_status_label.setStyleSheet(
+                f"font-size: {DesignSystem.FONT_SIZE_SM}px; color: {DesignSystem.COLOR_ERROR};"
+            )
+        
+        # Actualizar estilo del frame según disponibilidad
+        has_ffprobe = ffprobe_status.available
+        has_exiftool = exiftool_status.available
+        
+        if has_ffprobe and has_exiftool:
+            self.about_tools_status_frame.setStyleSheet(
+                DesignSystem.get_status_frame_style(DesignSystem.COLOR_SUCCESS)
+            )
+        elif has_ffprobe or has_exiftool:
+            self.about_tools_status_frame.setStyleSheet(
+                DesignSystem.get_status_frame_style(DesignSystem.COLOR_WARNING)
+            )
+        else:
+            self.about_tools_status_frame.setStyleSheet(
+                DesignSystem.get_status_frame_style(DesignSystem.COLOR_ERROR)
+            )
+
+    def _toggle_about_install_info(self):
+        """Muestra u oculta el panel de instrucciones de instalación."""
+        if self.about_install_info_panel.isVisible():
+            self.about_install_info_panel.hide()
+            self.about_install_info_btn.setText(
+                tr("settings.analysis.system_tools.install_how")
+            )
+        else:
+            self.about_install_info_panel.show()
+            self.about_install_info_btn.setText(
+                tr("settings.analysis.system_tools.install_hide")
+            )
 
     def _create_tools_tab(self) -> QWidget:
         """Crea la pestaña de herramientas (8 tools organizadas por categoría con colores)."""

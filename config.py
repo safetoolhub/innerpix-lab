@@ -180,7 +180,7 @@ class Config:
     DEVELOPMENT_MODE = False
     SAVED_CACHE_DEV_MODE_PATH = "/home/ed/Documents/Innerpix_Lab/cache_saved/RAW_TODO.json"
     SKIP_FIRST_LAUNCH_ABOUT = False  # Si True, nunca muestra el about_dialog automático al primer lanzamiento
-    DEV_RESET_FIRST_LAUNCH = False   # TEMPORAL: Si True, resetea el flag para que el about vuelva a aparecer
+    DEV_RESET_FIRST_LAUNCH = True   # TEMPORAL: Si True, resetea el flag para que el about vuelva a aparecer
     
     @classmethod
     def get_system_info(cls) -> Dict:
