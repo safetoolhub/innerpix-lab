@@ -465,7 +465,7 @@
       "privacy_badge": "100% Private • No internet connection"
     },
     "tab": {
-      "welcome": "Home",
+      "welcome": "Welcome",
       "tools": "Tools",
       "info": "Information"
     },
@@ -510,7 +510,7 @@
         }
       },
       "system_tools": {
-        "title": "System Tools",
+        "title": "Recommended external tools",
         "info": "External tools are needed to analyze videos (duration, date). Without them, video features will be limited.",
         "check_button": "Check"
       }

@@ -68,8 +68,8 @@ class AboutDialog(QDialog):
         """Inicializa la interfaz del diálogo."""
         self.setWindowTitle(tr("about.title", name=Config.APP_NAME))
         self.setModal(True)
-        self.setMinimumSize(1100, 850)
-        self.resize(1100, 850)
+        self.setMinimumSize(1100, 920)
+        self.resize(1100, 920)
         
         # Aplicar estilo global de tooltips
         self.setStyleSheet(DesignSystem.get_tooltip_style())
@@ -291,16 +291,16 @@ class AboutDialog(QDialog):
                 background-color: {DesignSystem.COLOR_SURFACE};
                 border: 1px solid {DesignSystem.COLOR_BORDER};
                 border-radius: {DesignSystem.RADIUS_LG}px;
-                margin-top: {DesignSystem.SPACE_8}px;
+                margin-top: {DesignSystem.SPACE_4}px;
             }}
         """)
         
         main_layout = QVBoxLayout(frame)
         main_layout.setContentsMargins(
-            DesignSystem.SPACE_16, DesignSystem.SPACE_12,
-            DesignSystem.SPACE_16, DesignSystem.SPACE_12
+            DesignSystem.SPACE_16, DesignSystem.SPACE_8,
+            DesignSystem.SPACE_16, DesignSystem.SPACE_8
         )
-        main_layout.setSpacing(DesignSystem.SPACE_8)
+        main_layout.setSpacing(DesignSystem.SPACE_4)
         
         # Título de la sección
         title_layout = QHBoxLayout()
@@ -341,10 +341,11 @@ class AboutDialog(QDialog):
         # Frame para mostrar estado de herramientas
         self.about_tools_status_frame = QFrame()
         self.about_tools_status_frame.setStyleSheet(
-            DesignSystem.get_status_frame_style(DesignSystem.COLOR_BORDER)
+            "background-color: transparent; border: none;"
         )
         
         tools_status_layout = QVBoxLayout(self.about_tools_status_frame)
+        tools_status_layout.setContentsMargins(0, 0, 0, 0)
         tools_status_layout.setSpacing(DesignSystem.SPACE_4)
         
         self.about_ffprobe_status_label = QLabel(
@@ -418,16 +419,16 @@ class AboutDialog(QDialog):
                 color: {DesignSystem.COLOR_TEXT_SECONDARY};
                 background-color: {DesignSystem.COLOR_BG_4};
                 border-radius: {DesignSystem.RADIUS_MD}px;
-                padding: {DesignSystem.SPACE_12}px;
+                padding: {DesignSystem.SPACE_6}px;
                 margin-left: {DesignSystem.SPACE_8}px;
             }}
         """)
         self.about_install_info_panel.hide()
         main_layout.addWidget(self.about_install_info_panel)
         
-        # Auto-check tools on creation
+        # Auto-check tools on creation con timer más corto
         from PyQt6.QtCore import QTimer
-        QTimer.singleShot(100, self._check_system_tools)
+        QTimer.singleShot(10, self._check_system_tools)
         
         return frame
 
@@ -477,18 +478,21 @@ class AboutDialog(QDialog):
         has_ffprobe = ffprobe_status.available
         has_exiftool = exiftool_status.available
         
-        if has_ffprobe and has_exiftool:
-            self.about_tools_status_frame.setStyleSheet(
-                DesignSystem.get_status_frame_style(DesignSystem.COLOR_SUCCESS)
-            )
-        elif has_ffprobe or has_exiftool:
-            self.about_tools_status_frame.setStyleSheet(
-                DesignSystem.get_status_frame_style(DesignSystem.COLOR_WARNING)
-            )
-        else:
-            self.about_tools_status_frame.setStyleSheet(
-                DesignSystem.get_status_frame_style(DesignSystem.COLOR_ERROR)
-            )
+        # Actualizar color sutil de fondo según disponibilidad (sin bordes)
+        color = DesignSystem.COLOR_SUCCESS if (has_ffprobe and has_exiftool) else \
+                DesignSystem.COLOR_WARNING if (has_ffprobe or has_exiftool) else \
+                DesignSystem.COLOR_ERROR
+        
+        # Usamos un estilo muy discreto: un borde lateral muy fino o nada. 
+        # El usuario pidió quitar bordes, así que solo usaremos un fondo muy tenue o nada.
+        self.about_tools_status_frame.setStyleSheet(f"""
+            QFrame {{
+                background-color: transparent;
+                border: none;
+                border-left: 3px solid {color};
+                padding-left: {DesignSystem.SPACE_8}px;
+            }}
+        """)
 
     def _toggle_about_install_info(self):
         """Muestra u oculta el panel de instrucciones de instalación."""
@@ -720,7 +724,6 @@ class AboutDialog(QDialog):
         env_card = self._create_info_card(tr("about.info.tech_card.title"), [
             (tr("about.info.tech_card.language"), "Python 3.x"),
             (tr("about.info.tech_card.ui"), "PyQt6"),
-            (tr("about.info.tech_card.architecture"), tr("about.info.tech_card.architecture_value")),
         ])
         info_grid.addWidget(env_card, 0, 1)
 

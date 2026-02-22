@@ -465,7 +465,7 @@
       "privacy_badge": "100% Privado • Sin conexión a internet"
     },
     "tab": {
-      "welcome": "Inicio",
+      "welcome": "Bienvenida",
       "tools": "Herramientas",
       "info": "Información"
     },
@@ -510,7 +510,7 @@
         }
       },
       "system_tools": {
-        "title": "Herramientas del Sistema",
+        "title": "Herramientas externas recomendadas",
         "info": "Para analizar vídeos (duración, fecha) se requieren herramientas externas. Sin ellas, las funciones de vídeo estarán limitadas.",
         "check_button": "Verificar"
       }
