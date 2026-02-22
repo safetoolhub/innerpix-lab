@@ -10,14 +10,14 @@ const translations = {
         "hero-badge": "Privacy-First Ecosystem",
         "hero-title-1": "Empowering users with",
         "hero-title-2": "Secure Local Tools",
-        "hero-subtitle": "We build premium, privacy-respecting software for professionals and enthusiasts. Everything runs locally on your machine. <strong>No cloud, no telemetry, no tracking.</strong>",
+        "hero-subtitle": "We build privacy-respecting software for everyone. Everything runs locally on your machine. <strong>No cloud, no telemetry, no tracking.</strong>",
         "hero-btn": "Explore Our Tools",
 
         // Tools Section
         "tools-title": "Available Applications",
-        "tools-desc": "Discover our suite of software designed with privacy and performance as the main pillars.",
+        "tools-desc": "Discover our suite of software designed with privacy and transparency as the main pillar.",
         "tools-i-title": "Innerpix Lab",
-        "tools-i-desc": "The ultimate privacy-first photo and video management studio. Clean duplicates, organize by EXIF, and find visually similar media.",
+        "tools-i-desc": "The ultimate privacy-first photo and video management studio. Clean duplicates, organize them in folders, and find visually similar media.",
         "tools-i-f1": "Exact & Perceptual Hash Duplicate Detection",
         "tools-i-f2": "HEIC/JPG and Live Photo Cleanup",
         "tools-i-f3": "Smart Date Organization & Renaming",
@@ -62,18 +62,18 @@ const translations = {
         "footer-links-org": "GitHub Organization",
         "footer-links-repo": "Innerpix Repo",
         "footer-rights": "© 2026 SafeToolHub. All rights reserved.",
-        "footer-license": "Licensed under the <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>GNU General Public License v3 (GPLv3)</a>.<br>Mandatory attribution required for any distribution or derivative work in accordance with GPLv3 Section 7, linking to SafeToolHub and safetoolhub.org.",
+        "footer-license": "Licensed under the <a href='https://www.gnu.org/licenses/gpl-3.0.html' target='_blank'>GNU General Public License v3 (GPLv3)</a>.<br>Mandatory attribution required for any distribution or derivative work in accordance with GPLv3 Section 7, linking to safetoolhub@protonmail.com and safetoolhub.org.",
 
         // Blog Page specific
         "post-back": "Back to Home",
-        "post-title": "Why Local Processing Matters",
+        "post-title": "Why Local Processing and Pruvacy Matters",
         "post-date": "February 21, 2026",
         "post-author": "By SafeToolHub",
         "post-c1": "In today’s software ecosystem, the standard model is to process user data on remote servers. We are constantly told that the cloud is necessary for 'AI features', 'analytics', or 'cross-device syncing'. But at SafeToolHub, we firmly disagree with this premise.",
         "post-c2": "Your data—especially personal photos and videos—belongs to you. When you upload files to a third-party server, you surrender control. Telemetry pings, behavioral tracking, and silent analytics have become the norm even for simple desktop utilities. We believe this is a fundamental violation of user trust.",
-        "post-c3": "That is why SafeToolHub applications, like Innerpix Lab, are built with a <strong>100% Offline Architecture</strong>. There is no telemetry. There are no analytics. In fact, our applications don’t even include the networking libraries capable of making outgoing HTTP requests.",
+        "post-c3": "That is why SafeToolHub applications, like Innerpix Lab, are built with a <strong>100% Offline Architecture</strong>. There is no telemetry. There are no analytics. In fact, our applications don’t even include the networking libraries capable of making outgoing HTTP requests. No ads, Completely free.",
         "post-c4": "Local processing is not just about privacy; it’s about performance and ownership. Modern computers are incredibly powerful. Utilizing local hardware accelerates tasks like perceptual hashing and duplicates detection, all while keeping your data secured on your own hard drive.",
-        "post-c5": "We are committed to building premium, high-performance software that respects you as a user. Thank you for supporting our mission to bring privacy back to the desktop."
+        "post-c5": "We are committed to building open-source software that respects you as a user. Thank you for supporting our mission to bring privacy back to the desktop."
     },
 
     es: {
