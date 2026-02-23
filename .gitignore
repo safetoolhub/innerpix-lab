@@ -213,5 +213,4 @@ __marimo__/
 # PyInstaller work directory
 build/pyinstaller-work/
 
-# Website build artifacts
-website/_site/
+

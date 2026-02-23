@@ -2,7 +2,7 @@
 
 This document describes how to create a new release of InnerPix Lab. The process is automated via GitHub Actions — you only need to update the version and push a tag.
 
-> **Privacy note:** All releases are created as **drafts**. Nothing is published until you manually review and publish the release on GitHub. The website is deployed only via manual trigger.
+> **Privacy note:** All releases are created as **drafts**. Nothing is published until you manually review and publish the release on GitHub.
 
 ## Quick Release Checklist
 
@@ -33,7 +33,7 @@ That's it. GitHub Actions will automatically:
 
 When you're ready to go public:
 4. Review the draft release on GitHub → **Publish**
-5. Trigger website deployment: Actions → "Deploy Pages" → **Run workflow**
+5. Update the website if needed (separate repo: [safetoolhub.github.io](https://github.com/safetoolhub/safetoolhub.github.io))
 
 ## Version Numbering
 
@@ -102,15 +102,12 @@ When you push a tag matching `v*`, GitHub Actions builds on 3 platforms and crea
 - Auto-generates release notes from commits since last tag
 - **You must manually publish** from the GitHub Releases page
 
-## Website Deployment
+## Website
 
-The website is deployed **only** via manual trigger:
+The SafeToolHub website is maintained in a separate repository:
+[safetoolhub/safetoolhub.github.io](https://github.com/safetoolhub/safetoolhub.github.io)
 
-1. Go to Actions → "Deploy Pages" → **Run workflow**
-2. Select branch → Run
-3. Website updates at your GitHub Pages URL
-
-No automatic deployment occurs — you control when the site goes live.
+It deploys automatically to [safetoolhub.org](https://safetoolhub.org) via GitHub Pages when changes are pushed to `main`.
 
 ## Local Build (for testing)
 
@@ -183,6 +180,5 @@ www.safetoolhub.org → safetoolhub.github.io
 # safetoolhub.com → redirect to safetoolhub.org (at registrar level)
 ```
 
-After configuring DNS:
-1. Add a `website/CNAME` file with: `safetoolhub.org`
-2. Enable "Enforce HTTPS" in GitHub → Settings → Pages after DNS propagation
+DNS is configured for the website repository ([safetoolhub.github.io](https://github.com/safetoolhub/safetoolhub.github.io)).
+After configuring DNS, enable "Enforce HTTPS" in GitHub → Settings → Pages after DNS propagation.
