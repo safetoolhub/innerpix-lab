@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Innerpix Lab
+GenericName=Photo Manager
+Comment=Privacy-first photo and video management — 100% local
+Exec=innerpix-lab
+Icon=org.safetoolhub.innerpixlab
+Categories=Graphics;Photography;
+Keywords=photo;video;duplicate;privacy;organizer;
+Terminal=false
+StartupNotify=true

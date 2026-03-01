@@ -1,0 +1,45 @@
+# Flatpak manifest for InnerPix Lab
+# Uses the pre-built PyInstaller binary (dist/innerpix-lab/) as source.
+# Build with: flatpak-builder --user --force-clean --repo=repo build-dir build/org.safetoolhub.innerpixlab.yml
+# Bundle:     flatpak build-bundle repo InnerPixLab.flatpak org.safetoolhub.innerpixlab
+
+app-id: org.safetoolhub.innerpixlab
+runtime: org.freedesktop.Platform
+runtime-version: '23.08'
+sdk: org.freedesktop.Sdk
+command: innerpix-lab
+
+finish-args:
+  # Filesystem access for user photos/videos
+  - --filesystem=home
+  # Display
+  - --share=ipc
+  - --socket=x11
+  - --socket=wayland
+  - --socket=fallback-x11
+  # GPU acceleration (image rendering)
+  - --device=dri
+
+modules:
+  - name: innerpix-lab
+    buildsystem: simple
+    build-commands:
+      # Install the pre-built PyInstaller bundle
+      - install -d /app/opt/innerpix-lab
+      - cp -a dist/innerpix-lab/* /app/opt/innerpix-lab/
+
+      # Launcher script (from build/innerpix-lab-launcher.sh)
+      - install -Dm755 build/innerpix-lab-launcher.sh /app/bin/innerpix-lab
+
+      # Desktop file
+      - install -Dm644 build/org.safetoolhub.innerpixlab.desktop /app/share/applications/org.safetoolhub.innerpixlab.desktop
+
+      # Icon
+      - install -Dm644 assets/icon.png /app/share/icons/hicolor/512x512/apps/org.safetoolhub.innerpixlab.png
+
+      # AppStream metainfo
+      - install -Dm644 build/org.safetoolhub.innerpixlab.metainfo.xml /app/share/metainfo/org.safetoolhub.innerpixlab.metainfo.xml
+
+    sources:
+      - type: dir
+        path: ..
